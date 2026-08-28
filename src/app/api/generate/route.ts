@@ -1,17 +1,46 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { sampleReferences } from "@/lib/reviews";
+import { sampleReferences, sampleOliveOnly } from "@/lib/reviews";
 import { GENERATION_RULES, STYLE_PROFILE } from "@/lib/prompt";
 import { buildStylePlan, stylePlanText } from "@/lib/style-plan";
 
 export const runtime = "nodejs";
+
+type CustomProduct = {
+  id?: string;
+  name?: string;
+  label?: string;
+  summary?: string;
+  reviewCount?: number;
+  keywords?: string[];
+  reviews?: string[];
+};
 
 type Body = {
   product?: string;
   experience?: string;
   length?: "auto" | "short" | "medium" | "long";
   count?: number;
+  customProduct?: CustomProduct;
 };
+
+function cleanStrings(rows: unknown, max: number, maxChars: number) {
+  if (!Array.isArray(rows)) return [];
+  return rows
+    .filter((x): x is string => typeof x === "string")
+    .map((x) => x.replace(/\s+/g, " ").trim().slice(0, maxChars))
+    .filter(Boolean)
+    .slice(0, max);
+}
+
+function pickProductExamples(rows: string[], max = 14) {
+  if (rows.length <= max) return rows;
+  const short = rows.filter((x) => x.length <= 100);
+  const medium = rows.filter((x) => x.length > 100 && x.length <= 250);
+  const long = rows.filter((x) => x.length > 250);
+  const take = (arr: string[], n: number) => arr.slice(0, n);
+  return [...take(short, 4), ...take(medium, 6), ...take(long, 4)].slice(0, max);
+}
 
 export async function POST(req: Request) {
   try {
@@ -24,8 +53,36 @@ export async function POST(req: Request) {
     const experience = String(body.experience || "").trim().slice(0, 5000);
     const count = Math.min(Math.max(Number(body.count || 1), 1), 20);
     const length = body.length || "auto";
-    const refs = sampleReferences(productId);
     const stylePlan = buildStylePlan(count, length);
+
+    const custom = body.customProduct;
+    let productName = "";
+    let reviewCount = 0;
+    let productKeywords: string[] = [];
+    let productExamples: string[] = [];
+    let olive: string[] = [];
+    let productProfile = "";
+
+    if (custom?.name && Array.isArray(custom.reviews)) {
+      const reviews = cleanStrings(custom.reviews, 90, 1800);
+      if (!reviews.length) throw new Error("직접 등록 제품의 리뷰 데이터가 비어 있습니다.");
+      productName = String(custom.name).slice(0, 200);
+      reviewCount = Math.max(Number(custom.reviewCount || reviews.length), reviews.length);
+      productKeywords = cleanStrings(custom.keywords, 18, 40);
+      productExamples = pickProductExamples(reviews, 14);
+      olive = sampleOliveOnly();
+      productProfile = `[직접 등록 제품]\n제품명: ${productName}\n설명: ${String(custom.summary || "공홈 실제 리뷰 기반").slice(0, 300)}\n아래 실제 제품 리뷰 표본과 반복 키워드를 바탕으로 제품 소구를 파악한다.`;
+    } else {
+      const refs = sampleReferences(productId);
+      productName = refs.product.name;
+      reviewCount = refs.productReviewCount;
+      productKeywords = refs.productKeywords;
+      productExamples = refs.productExamples;
+      olive = refs.olive;
+      productProfile = refs.product.profile
+        ? `[제품 등록 프로필 — 보조 참고]\n${refs.product.profile}`
+        : `[제품 등록 프로필 없음]\n아래 실제 제품 리뷰 표본과 반복 키워드만 보고 이 제품의 소구를 파악한다.`;
+    }
 
     const lengthRule = length === "short"
       ? "짧은 후기 중심. 대체로 60자 이하, 한두 포인트만 툭 말하고 끝나도 된다."
@@ -35,19 +92,14 @@ export async function POST(req: Request) {
       ? "상세 후기 중심. 대체로 151자 이상이지만 길이와 구조를 획일화하지 않는다."
       : "실제 올리브영 분포처럼 짧음/중간/상세 후기를 섞는다.";
 
-    const productProfile = refs.product.profile
-      ? `[제품 등록 프로필 — 보조 참고]\n${refs.product.profile}`
-      : `[제품 등록 프로필 없음]\n아래 실제 제품 리뷰 표본과 반복 키워드만 보고 이 제품의 소구를 파악한다.`;
-
     const modeRule = experience
       ? `[입력 기반 모드]\n사용자 입력:\n${experience}\n\n입력 내용이 가장 중요한 사실 기준이다. 입력에 없는 효과·기간·피부 타입·재구매 경험을 새로 만들지 않는다.`
       : `[자동 생성 모드]\n사용자 경험 입력이 없다. 아래 해당 제품 실제 리뷰에서 반복 확인되는 소구 범위 안에서만 일반적인 가상 사용 상황을 구성한다. 한 리뷰에 모든 장점을 넣지 말고 보통 1~2개의 포인트만 사용한다.`;
 
     const input = `
 [작업 대상]
-제품: ${refs.product.name}
-제품 ID: ${refs.product.id}
-실제 제품 리뷰 수: ${refs.productReviewCount}개
+제품: ${productName}
+실제 제품 리뷰 수: ${reviewCount}개
 요청 리뷰 수: ${count}개
 길이: ${lengthRule}
 
@@ -63,13 +115,13 @@ ${stylePlanText(stylePlan)}
 ${productProfile}
 
 [해당 제품 실제 리뷰에서 자주 나타난 단어 — 소구 탐색 보조]
-${refs.productKeywords.join(", ") || "키워드 없음"}
+${productKeywords.join(", ") || "키워드 없음"}
 
 [실제 올리브영 리뷰 — 오직 문체 관찰용]
-${refs.olive.map((x, i) => `${i + 1}. ${x}`).join("\n")}
+${olive.map((x, i) => `${i + 1}. ${x}`).join("\n")}
 
 [해당 제품 실제 리뷰 — 제품 소구/사용 맥락 확인용]
-${refs.productExamples.map((x, i) => `${i + 1}. ${x}`).join("\n")}
+${productExamples.map((x, i) => `${i + 1}. ${x}`).join("\n")}
 
 [최종 지시]
 - 위 제품 실제 리뷰에서 확인되지 않는 핵심 효능을 새로 만들지 않는다.
@@ -91,7 +143,7 @@ ${refs.productExamples.map((x, i) => `${i + 1}. ${x}`).join("\n")}
 
     const text = response.output_text?.trim();
     if (!text) throw new Error("모델 응답이 비어 있습니다.");
-    return NextResponse.json({ text, mode: experience ? "guided" : "auto", product: refs.product.id });
+    return NextResponse.json({ text, mode: experience ? "guided" : "auto", product: productId || "custom" });
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: e instanceof Error ? e.message : "서버 오류가 발생했습니다." }, { status: 500 });

@@ -148,6 +148,11 @@ function sampleProductReferences(rows: ProductReview[]) {
   return { examples: shuffle(selected).slice(0, 14).map((r) => r.content || ""), keywords };
 }
 
+export function sampleOliveOnly() {
+  const d = data();
+  return sampleOliveReferences(d.olive);
+}
+
 export function sampleReferences(productId: string) {
   const d = data();
   const product = getProduct(productId);

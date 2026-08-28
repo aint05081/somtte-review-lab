@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SOMTTE Review Lab",
+  title: "BNR Review Lab",
   description: "실제 사용 경험을 실제 소비자 리뷰 문체로 자연스럽게 다듬는 내부 도구",
 };
 
