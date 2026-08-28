@@ -61,3 +61,6 @@ select { width:100%; padding:12px 13px; border:1px solid var(--line); border-rad
 .modePill { margin-top:9px; border-radius:10px; padding:9px 11px; font-size:11px; line-height:1.45; }
 .modePill.auto { background:#f4f1ec; color:#756f67; }
 .modePill.guided { background:#eef2ed; color:#506b58; }
+.dynamicProducts { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 360px; overflow:auto; padding-right:2px; }
+.product.active.dynamicActive { border-color:#9c8ac2; background:#f1edf8; }
+@media (max-width: 540px) { .dynamicProducts { grid-template-columns:1fr; max-height:none; } }
