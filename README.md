@@ -1,54 +1,18 @@
-# SOMTTE Review Lab v5
+# BNR Review Lab v9
 
-올리브영 실제 리뷰 데이터는 문체용, 제품별 공홈 리뷰 JSON은 제품 소구용으로 분리해 사용하는 내부 리뷰 샘플 도구입니다.
+제품별 리뷰 JSON + 공식 상세페이지 이미지를 함께 사용하는 내부 리뷰 생성 도구입니다.
 
-## 새 제품 추가 방법
+## 데이터 역할
+- 올리브영 리뷰: 소비자 문체/길이/구어체 스타일
+- 제품 공홈 리뷰 JSON: 실제 소비자 소구, 구매 계기, 사용 맥락
+- 제품 상세페이지 이미지: 성분, 제형, 맛, 사용/섭취법, 공식 기능성 등 FACT 확인
 
-1. 제품 리뷰 JSON을 `data/products/` 폴더에 넣습니다.
-2. `data/products.json`에 제품 정보를 한 항목 추가합니다.
-3. 저장 후 재배포하면 제품 선택 목록에 자동으로 나타납니다. 소스코드 수정은 필요 없습니다.
-
-예시:
-
-```json
-{
-  "id": "new-product",
-  "name": "전체 제품명",
-  "label": "화면에 표시할 짧은 이름",
-  "file": "new-product.json",
-  "summary": "제품 선택 버튼 아래 짧은 설명"
-}
-```
-
-`profile`은 선택사항입니다. 제품의 주요 소구를 이미 알고 있으면 적어둘 수 있습니다. 생략하면 실제 제품 리뷰 표본과 반복 키워드만으로 소구를 파악합니다.
-
-### 지원 리뷰 JSON 형식
-
-가장 권장하는 형식:
-
-```json
-[
-  { "content": "리뷰 본문", "ratings": 5 },
-  { "content": "리뷰 본문", "ratings": 4 }
-]
-```
-
-또한 최상위가 `{ "reviews": [...] }`, `{ "data": [...] }`, `{ "items": [...] }`, `{ "results": [...] }` 형태인 JSON도 읽습니다. 핵심 필드는 `content`입니다.
-
-## 실행
-
-```bash
-npm install
-npm run dev
-```
-
-`.env.local`:
-
-```text
-OPENAI_API_KEY=...
-OPENAI_MODEL=gpt-5.4
-```
+## 브랜드/제품
+- 솜떼: 센텔라 카밍 / 솔라눔 올클리어
+- 칸디데: 치약 / 프레시브레스 / 화이트케어
+- 베러데이: 키즈데이 데일리 / 키즈데이 사과·포도 / 칼마디 / 그로우데이
 
 ## 배포
+기존 Vercel 프로젝트에 그대로 push하면 됩니다. `OPENAI_API_KEY`, `OPENAI_MODEL` 환경변수는 기존 설정을 유지하세요.
 
-Vercel에 배포할 경우 `OPENAI_API_KEY`, `OPENAI_MODEL`을 Vercel Environment Variables에 등록합니다.
+상세페이지 이미지는 `data/details/<product-id>/`에서 서버만 읽으며, 요청 시 전체 상세페이지 구간에서 균등하게 뽑은 최대 6장을 모델에 FACT 참고 이미지로 전달합니다.

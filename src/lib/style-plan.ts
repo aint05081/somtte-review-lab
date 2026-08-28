@@ -3,7 +3,7 @@ export type ReviewStyle =
   | "초단문·툭 던지는 형"
   | "생활밀착 사용형"
   | "친근한 구어체·커뮤니티형"
-  | "피부 고민 선제시형"
+  | "고민 선제시형"
   | "경험 상세 설명형"
   | "장점+아쉬움 혼합형"
   | "재구매·정착템형"
@@ -30,8 +30,8 @@ const weightedStyles: ReviewStyle[] = [
   "생활밀착 사용형",
   "생활밀착 사용형",
   "친근한 구어체·커뮤니티형",
-  "피부 고민 선제시형",
-  "피부 고민 선제시형",
+  "고민 선제시형",
+  "고민 선제시형",
   "경험 상세 설명형",
   "경험 상세 설명형",
   "장점+아쉬움 혼합형",
@@ -51,7 +51,7 @@ function styleDefaults(style: ReviewStyle) {
 }
 
 function buildEmojiFlags(count:number){ if(count<=1)return[randomBool(.24)];const ratio=.2+Math.random()*.1;const n=Math.max(1,Math.min(count,Math.round(count*ratio)));return shuffle([...Array(n).fill(true),...Array(count-n).fill(false)]); }
-function expressionFlags(style:ReviewStyle){let laugh=.08,cry=.06;if(style==="친근한 구어체·커뮤니티형"){laugh=.3;cry=.16;}if(style==="재구매·정착템형")laugh=.18;if(style==="피부 고민 선제시형")cry=.18;if(style==="정돈된 리뷰어·체험후기형"){laugh=.02;cry=.01;}return{allowLaugh:randomBool(laugh),allowCry:randomBool(cry)};}
+function expressionFlags(style:ReviewStyle){let laugh=.08,cry=.06;if(style==="친근한 구어체·커뮤니티형"){laugh=.3;cry=.16;}if(style==="재구매·정착템형")laugh=.18;if(style==="고민 선제시형")cry=.18;if(style==="정돈된 리뷰어·체험후기형"){laugh=.02;cry=.01;}return{allowLaugh:randomBool(laugh),allowCry:randomBool(cry)};}
 
 export function buildStylePlan(count:number,requested:"auto"|"short"|"medium"|"long"):ReviewPlanItem[]{
   const lengths:ReviewLength[]=[];

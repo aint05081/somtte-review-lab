@@ -118,3 +118,15 @@ footer b { color:var(--blue); }
   .emptyState { min-height:390px; }
   .modal { padding:18px; border-radius:17px; }
 }
+
+/* v7: fixed brand/product catalog */
+.simpleHeader { align-items:flex-start; }
+.brandGroups { display:grid; gap:18px; }
+.brandGroup { display:grid; gap:9px; }
+.brandTitle { display:flex; align-items:center; justify-content:space-between; padding:0 2px; }
+.brandTitle span { font-size:13px; font-weight:900; color:#19365f; letter-spacing:-.02em; }
+.brandTitle small { font-size:9px; letter-spacing:.08em; color:#8ba1bd; font-weight:800; }
+.product.notReady { opacity:.58; border-style:dashed; }
+.product.notReady.active { opacity:.78; }
+.product.notReady em { background:#f3f6fa; color:#718096; }
+@media (max-width:640px) { .brandGroups .products { grid-template-columns:1fr; } }

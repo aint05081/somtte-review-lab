@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { getProduct, getProducts, productDataPath, type ProductConfig } from "@/lib/products";
+import { detailPageCount } from "@/lib/details";
 
 type OliveReview = { content?: string; reviewScore?: number; isRepurchase?: boolean; reviewType?: string };
 type ProductReview = { content?: string; ratings?: number; rating?: number; reviewScore?: number };
@@ -47,8 +48,12 @@ function data(): Loaded {
   const d = loadJson<{ reviews: OliveReview[] }>(path.join(process.cwd(), "data", "oliveyoung_dermatory.json"));
   const products = new Map<string, ProductReview[]>();
   for (const product of getProducts()) {
-    const raw = loadJson<unknown>(productDataPath(product));
-    products.set(product.id, dedupe(unwrapProductJson(raw).filter((r) => r.content)));
+    try {
+      const raw = loadJson<unknown>(productDataPath(product));
+      products.set(product.id, dedupe(unwrapProductJson(raw).filter((r) => r.content)));
+    } catch {
+      products.set(product.id, []);
+    }
   }
   cache = {
     olive: dedupe([...m.reviews, ...d.reviews].filter((r) => r.content)),
@@ -124,6 +129,12 @@ function productKeywords(rows: ProductReview[]) {
   return [...freq.entries()].sort((a,b) => b[1]-a[1]).slice(0, 18).map(([x]) => x);
 }
 
+function productSummary(rows: ProductReview[]) {
+  if (!rows.length) return "리뷰 JSON 준비 중";
+  const words = productKeywords(rows).slice(0, 4);
+  return words.length ? words.join(" · ") : "실제 리뷰 기반 소구 자동 분석";
+}
+
 function sampleProductReferences(rows: ProductReview[]) {
   const selected: ProductReview[] = [];
   const seen = new Set<string>();
@@ -169,11 +180,17 @@ export function sampleReferences(productId: string) {
 
 export function publicProducts() {
   const d = data();
-  return getProducts().map((p) => ({
-    id: p.id,
-    name: p.name,
-    label: p.label,
-    summary: p.summary || "실제 제품 리뷰 기반",
-    reviewCount: d.products.get(p.id)?.length || 0,
-  }));
+  return getProducts().map((p) => {
+    const rows = d.products.get(p.id) || [];
+    return {
+      id: p.id,
+      brand: p.brand,
+      name: p.name,
+      label: p.label,
+      summary: productSummary(rows),
+      reviewCount: rows.length,
+      detailPageCount: detailPageCount(p),
+      ready: rows.length > 0,
+    };
+  });
 }
