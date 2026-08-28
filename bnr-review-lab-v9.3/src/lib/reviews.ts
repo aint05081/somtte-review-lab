@@ -249,7 +249,7 @@ export function publicProducts() {
       brand: p.brand,
       name: p.name,
       label: p.label,
-      summary: productSummary(rows),
+      summary: p.detailSummary || "상세페이지 FACT 기반",
       reviewCount: rows.length,
       detailPageCount: detailPageCount(p),
       ready: rows.length > 0,

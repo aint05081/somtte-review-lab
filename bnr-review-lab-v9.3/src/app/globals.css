@@ -52,6 +52,7 @@ textarea:focus, select:focus, .textInput:focus { border-color:#94baf0; box-shado
 .modePill.guided { background:#eaf4ff; color:#1858ad; }
 .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
 .optionsRow { margin-top:4px; }
+.threeOptions { grid-template-columns:1fr 1fr 1fr; }
 select { width:100%; padding:11px 12px; border:1px solid var(--line); border-radius:11px; background:#fff; color:var(--text); }
 .primary { width:100%; margin-top:18px; padding:14px 16px; border:0; border-radius:12px; background:linear-gradient(135deg,#1264ea,#0f55d4); color:#fff; font-weight:800; box-shadow:0 7px 18px rgba(18,100,234,.18); }
 .bigPrimary { margin-top:21px; padding:15px; font-size:15px; }
@@ -111,7 +112,7 @@ footer b { color:var(--blue); }
   .header { align-items:stretch; flex-direction:column; gap:16px; }
   h1 { font-size:32px; }
   .registerButton { width:100%; }
-  .products,.row { grid-template-columns:1fr; }
+  .products,.row,.threeOptions { grid-template-columns:1fr; }
   .dynamicProducts { max-height:none; }
   .resultTop { align-items:flex-start; flex-direction:column; }
   .resultBox { min-height:430px; }

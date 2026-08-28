@@ -8,6 +8,7 @@ export type ProductConfig = {
   label: string;
   file: string;
   detailDir?: string;
+  detailSummary?: string;
 };
 
 let cache: ProductConfig[] | null = null;

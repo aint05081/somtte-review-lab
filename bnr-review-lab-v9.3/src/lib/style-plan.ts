@@ -11,7 +11,7 @@ export type ReviewStyle =
 export type PolishLevel = "clean" | "natural" | "loose";
 export type PunctuationStyle = "clean" | "mixed" | "loose";
 export type CasualLevel = "none" | "light" | "medium" | "strong";
-export type EmojiMode = "none" | "light";
+export type EmojiMode = "none" | "light" | "medium";
 
 export type ReviewPlanItem = {
   index: number;
@@ -50,7 +50,21 @@ function styleDefaults(style: ReviewStyle) {
   return { polish: weightedPick<PolishLevel>([{value:"natural",weight:60},{value:"clean",weight:22},{value:"loose",weight:18}]), punctuation: weightedPick<PunctuationStyle>([{value:"mixed",weight:60},{value:"clean",weight:20},{value:"loose",weight:20}]), casual: weightedPick<CasualLevel>([{value:"light",weight:48},{value:"medium",weight:24},{value:"none",weight:24},{value:"strong",weight:4}]) };
 }
 
-function buildEmojiFlags(count:number){ if(count<=1)return[randomBool(.24)];const ratio=.2+Math.random()*.1;const n=Math.max(1,Math.min(count,Math.round(count*ratio)));return shuffle([...Array(n).fill(true),...Array(count-n).fill(false)]); }
+function buildEmojiModes(count:number):EmojiMode[]{
+  if(count<=1){
+    if(!randomBool(.48)) return ["none"];
+    return [randomBool(.28)?"medium":"light"];
+  }
+  const ratio=.44+Math.random()*.12;
+  const emojiN=Math.max(1,Math.min(count,Math.round(count*ratio)));
+  const mediumN=Math.max(0,Math.min(emojiN,Math.round(emojiN*.28)));
+  const lightN=emojiN-mediumN;
+  return shuffle([
+    ...Array(mediumN).fill("medium" as EmojiMode),
+    ...Array(lightN).fill("light" as EmojiMode),
+    ...Array(count-emojiN).fill("none" as EmojiMode),
+  ]);
+}
 function expressionFlags(style:ReviewStyle){let laugh=.08,cry=.06;if(style==="친근한 구어체·커뮤니티형"){laugh=.3;cry=.16;}if(style==="재구매·정착템형")laugh=.18;if(style==="고민 선제시형")cry=.18;if(style==="정돈된 리뷰어·체험후기형"){laugh=.02;cry=.01;}return{allowLaugh:randomBool(laugh),allowCry:randomBool(cry)};}
 
 export function buildStylePlan(count:number,requested:"auto"|"short"|"medium"|"long"):ReviewPlanItem[]{
@@ -58,8 +72,8 @@ export function buildStylePlan(count:number,requested:"auto"|"short"|"medium"|"l
   if(requested!=="auto") for(let i=0;i<count;i++) lengths.push(requested);
   else {let s=Math.round(count*.35),m=Math.round(count*.345),l=count-s-m;if(l<0){m+=l;l=0;}lengths.push(...Array(s).fill("short"),...Array(m).fill("medium"),...Array(l).fill("long"));}
   const pool:ReviewStyle[]=[];while(pool.length<count)pool.push(...shuffle(weightedStyles));
-  const styles=pool.slice(0,count), mixed=shuffle(lengths), emoji=buildEmojiFlags(count);
-  return Array.from({length:count},(_,i)=>{const base=styleDefaults(styles[i]),expr=expressionFlags(styles[i]);return{index:i+1,length:mixed[i],style:styles[i],polish:base.polish,punctuation:base.punctuation,casual:base.casual,emoji:emoji[i]?"light":"none",allowLaugh:expr.allowLaugh,allowCry:expr.allowCry};});
+  const styles=pool.slice(0,count), mixed=shuffle(lengths), emoji=buildEmojiModes(count);
+  return Array.from({length:count},(_,i)=>{const base=styleDefaults(styles[i]),expr=expressionFlags(styles[i]);return{index:i+1,length:mixed[i],style:styles[i],polish:base.polish,punctuation:base.punctuation,casual:base.casual,emoji:emoji[i],allowLaugh:expr.allowLaugh,allowCry:expr.allowCry};});
 }
 
 export function stylePlanText(plan:ReturnType<typeof buildStylePlan>){
@@ -67,5 +81,5 @@ export function stylePlanText(plan:ReturnType<typeof buildStylePlan>){
   const pt={clean:"정돈도 높음",natural:"정돈도 보통",loose:"정돈도 느슨함"} as const;
   const qt={clean:"구두점 비교적 정확",mixed:"구두점 혼합",loose:"구두점 느슨/마침표 생략 가능"} as const;
   const ct={none:"구어체 거의 없음",light:"가벼운 구어체",medium:"구어체 중간",strong:"인터넷 구어체 강함"} as const;
-  return plan.map(x=>{const e=[x.emoji==="light"?"이모지 1~2개 허용":"이모지 없음"];if(x.allowLaugh)e.push("ㅎㅎ/ㅋㅋ 자연스럽게 허용");if(x.allowCry)e.push("ㅠㅠ/ㅜㅜ 자연스럽게 허용");return `${x.index}. ${lt[x.length]} / ${x.style} / ${pt[x.polish]} / ${qt[x.punctuation]} / ${ct[x.casual]} / ${e.join(", ")}`;}).join("\n");
+  return plan.map(x=>{const e=[x.emoji==="medium"?"이모지 2~3개 자연스럽게 사용":x.emoji==="light"?"이모지 1~2개 자연스럽게 사용":"이모지 없음"];if(x.allowLaugh)e.push("ㅎㅎ/ㅋㅋ 자연스럽게 허용");if(x.allowCry)e.push("ㅠㅠ/ㅜㅜ 자연스럽게 허용");return `${x.index}. ${lt[x.length]} / ${x.style} / ${pt[x.polish]} / ${qt[x.punctuation]} / ${ct[x.casual]} / ${e.join(", ")}`;}).join("\n");
 }
