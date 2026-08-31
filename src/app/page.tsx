@@ -96,9 +96,15 @@ export default function Home() {
       }
       setReviewImages((prev) => ({ ...prev, [index]: { urls, loading: false, error: "" } }));
     } catch (e) {
+      let message = e instanceof Error ? e.message : "이미지 생성 오류";
+      if (/failed to fetch|networkerror|load failed/i.test(message)) {
+        message = imageQuality === "high"
+          ? "고화질 생성 요청이 서버 응답 전에 끊겼습니다. Vercel 함수 시간 제한 또는 네트워크 문제일 수 있어요. 잠시 후 다시 시도해주세요."
+          : "이미지 생성 서버 연결이 끊겼습니다. 잠시 후 다시 시도해주세요.";
+      }
       setReviewImages((prev) => ({
         ...prev,
-        [index]: { urls: prev[index]?.urls || [], loading: false, error: e instanceof Error ? e.message : "이미지 생성 오류" },
+        [index]: { urls: prev[index]?.urls || [], loading: false, error: message },
       }));
     }
   }
@@ -205,7 +211,7 @@ export default function Home() {
               <label className="imageToggle">
                 <input type="checkbox" checked={withImages} onChange={(e) => setWithImages(e.target.checked)} />
                 <span className="fakeCheck">✓</span>
-                <div><b>리뷰 이미지도 함께 생성</b><small>실제 후기 사진의 촬영 패턴 + 상세페이지 제품 외형 참고</small></div>
+                <div><b>리뷰 이미지도 함께 생성</b><small>제품은 공홈 후기·상세페이지 / 사진 유형·배치는 올리브영 포토리뷰까지 분석</small></div>
               </label>
               <div className={`imageOptionControls ${withImages ? "" : "disabledPanel"}`}>
                 <div><label className="label">이미지 화질</label><select value={imageQuality} onChange={(e) => setImageQuality(e.target.value as ImageQuality)} disabled={!withImages}><option value="low">저화질</option><option value="medium">중화질</option><option value="high">고화질</option></select></div>
@@ -226,7 +232,7 @@ export default function Home() {
               <div><b>브랜드</b><span>{selected?.brand || "-"}</span></div>
               <div><b>연령대</b><span>{ageGroup === "auto" ? "자동 분산" : ageGroup === "teens" ? "10대 말투" : ageGroup === "50plus" ? "50대+ 말투" : `${ageGroup.replace("s", "")}대 말투`}</span></div>
               <div><b>제품 소구</b><span>{selected ? `상세페이지 ${selected.detailPageCount}개 이미지 기반` : "-"}</span></div>
-              <div><b>리뷰 이미지</b><span>{selected ? `실제 사진 리뷰 ${selected.photoReviewCount || 0}건 패턴 참고` : "-"}</span></div>
+              <div><b>리뷰 이미지</b><span>{selected ? `공홈 사진리뷰 ${selected.photoReviewCount || 0}건 + 올리브영 4,290개 패턴` : "-"}</span></div>
               <div><b>입력</b><span>{hasExperience ? "작성한 포인트 우선 반영" : "공식 소구 + 실제 경험 자동 조합"}</span></div>
             </div>
             <div className="notice"><b>이미지는 새로 생성됩니다.</b> 실제 고객 사진은 구도·생활감·촬영 패턴 참고용으로만 사용하며, 특정 고객이나 아이의 얼굴·방·포즈를 복제하지 않습니다. 생성된 사진에는 화면에서 AI 생성 표시가 붙습니다.</div>
@@ -248,14 +254,14 @@ export default function Home() {
                       <div className="reviewText">{review}</div>
 
                       <div className="reviewImageBar">
-                        <div><b>리뷰 이미지</b><small>{qualityLabel(imageQuality)} · {imagesPerReview}장 · 실제 후기 패턴 자동 참고</small></div>
+                        <div><b>리뷰 이미지</b><small>{qualityLabel(imageQuality)} · {imagesPerReview}장 · 공홈 제품 맥락 + 올리브영 포토 패턴</small></div>
                         <button className="imageGenerateButton" onClick={() => generateImage(review, index)} disabled={imgState.loading}>
                           {imgState.loading ? "생성 중…" : imgState.urls.length ? "↻ 다시 생성" : "✦ 이미지 생성"}
                         </button>
                       </div>
 
                       {imgState.error && <div className="imageError">{imgState.error}</div>}
-                      {imgState.loading && <div className="imageLoading"><div className="spinner" /><b>후기 사진 패턴을 참고해 생성 중…</b><span>고화질은 시간이 조금 더 걸릴 수 있어요.</span></div>}
+                      {imgState.loading && <div className="imageLoading"><div className="spinner" /><b>후기 사진 패턴을 참고해 생성 중…</b><span>고화질은 중화질보다 오래 걸릴 수 있어요. 창을 닫지 말고 기다려주세요.</span></div>}
                       {!!imgState.urls.length && !imgState.loading && (
                         <div className={`generatedImageGrid count${Math.min(imgState.urls.length, 4)}`}>
                           {imgState.urls.map((url, imageIndex) => (
@@ -273,7 +279,7 @@ export default function Home() {
               </div>
             )}
 
-            <div className="meta">제품별 원본 리뷰와 상세페이지 이미지는 브라우저에 공개하지 않고 서버에서만 읽습니다. 이미지 생성 시 실제 후기 사진은 촬영 스타일 참고용, 상세페이지 이미지는 제품 외형 참고용으로 사용합니다.</div>
+            <div className="meta">제품별 원본 리뷰와 상세페이지 이미지는 브라우저에 공개하지 않고 서버에서만 읽습니다. 이미지 생성 시 상세페이지는 제품 외형·FACT, 공홈 후기 사진은 해당 제품의 실제 사용 맥락, 올리브영 4,290개 리뷰의 포토리뷰 메타·문맥은 사진 유형·구도·배치 패턴 참고용으로 사용합니다.</div>
           </div>
         </section>
         <footer>© <b>BNR</b> Review Lab · Internal Tool</footer>

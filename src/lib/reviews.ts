@@ -3,7 +3,16 @@ import path from "node:path";
 import { getProduct, getProducts, productDataPath, type ProductConfig } from "@/lib/products";
 import { detailPageCount } from "@/lib/details";
 
-type OliveReview = { content?: string; reviewScore?: number; isRepurchase?: boolean; reviewType?: string };
+type OlivePhoto = { imageSequence?: number; imagePath?: string };
+type OliveReview = {
+  content?: string;
+  reviewScore?: number;
+  isRepurchase?: boolean;
+  reviewType?: string;
+  hasPhoto?: boolean;
+  photoReviewList?: OlivePhoto[];
+  usefulPoint?: number;
+};
 type ProductMedia = {
   photo_url?: string | null;
   photo_platform_url?: string | null;
@@ -273,6 +282,84 @@ export function sampleReviewPhotoReferences(productId: string, reviewText = "", 
       seen.add(url);
       if (out.length >= Math.max(1, maxImages)) return out;
     }
+  }
+  return out;
+}
+
+
+function oliveAttachedPhotoCount(row: OliveReview) {
+  return Array.isArray(row.photoReviewList) ? row.photoReviewList.filter((x) => x?.imagePath).length : 0;
+}
+
+const OLIVE_VISUAL_CUES = [
+  { key: "product", label: "제품/패키지 자체를 보여주는 컷", re: /제품|패키지|케이스|통|용기|뚜껑|패드/ },
+  { key: "use", label: "손이 들어가는 실제 사용·꺼내는 장면", re: /손|집게|꺼내|붙이|닦|쓱|슥|팩|닦토|팩토/ },
+  { key: "detail", label: "피부결·모공·각질 등 결과/디테일 클로즈업", re: /피부결|모공|각질|피지|블랙헤드|트러블|홍조|붉/ },
+  { key: "texture", label: "제형·에센스·내용물 가까이 보여주는 컷", re: /에센스|토너|수분|촉촉|제형|앰플/ },
+  { key: "purchase", label: "재구매·기획·리필·여러 개를 보여주는 구매 인증 컷", re: /구매|재구매|쟁여|박스|기획|리필/ },
+  { key: "routine", label: "세안·아침 루틴 등 생활 공간 속 사용 컷", re: /세안|샤워|욕실|세면|아침/ },
+  { key: "makeup", label: "메이크업 전후 맥락의 피부/화장대 컷", re: /메이크업|화장|파데|쿠션|밀림|들뜸|화장잘/ },
+] as const;
+
+let oliveVisualProfileCache: null | {
+  totalReviews: number;
+  photoReviews: number;
+  attachedPhotos: number;
+  photoRate: number;
+  photoCountDistribution: Record<string, number>;
+  cueRates: { key: string; label: string; count: number; rate: number }[];
+} = null;
+
+export function olivePhotoPatternProfile() {
+  if (oliveVisualProfileCache) return oliveVisualProfileCache;
+  const rows = data().olive;
+  const photoRows = rows.filter((r) => r.hasPhoto || oliveAttachedPhotoCount(r) > 0);
+  const attachedPhotos = photoRows.reduce((n, r) => n + oliveAttachedPhotoCount(r), 0);
+  const dist: Record<string, number> = {};
+  for (const row of photoRows) {
+    const n = oliveAttachedPhotoCount(row);
+    const key = n >= 4 ? "4+" : String(Math.max(1, n));
+    dist[key] = (dist[key] || 0) + 1;
+  }
+  const cueRates = OLIVE_VISUAL_CUES.map((cue) => {
+    const count = photoRows.reduce((n, r) => n + (cue.re.test(r.content || "") ? 1 : 0), 0);
+    return { key: cue.key, label: cue.label, count, rate: photoRows.length ? count / photoRows.length : 0 };
+  }).sort((a, b) => b.count - a.count);
+  oliveVisualProfileCache = {
+    totalReviews: rows.length,
+    photoReviews: photoRows.length,
+    attachedPhotos,
+    photoRate: rows.length ? photoRows.length / rows.length : 0,
+    photoCountDistribution: dist,
+    cueRates,
+  };
+  return oliveVisualProfileCache;
+}
+
+export function sampleOlivePhotoContexts(reviewText = "", maxRows = 5) {
+  const rows = data().olive.filter((r) => r.hasPhoto || oliveAttachedPhotoCount(r) > 0);
+  if (!rows.length) return [];
+  const tokens = new Set((normalizeText(reviewText).match(/[가-힣A-Za-z]{2,}/g) || []).map((x) => x.toLowerCase()));
+  const scored = rows.map((row) => {
+    const text = normalizeText(row.content || "").toLowerCase();
+    let score = 0;
+    for (const token of tokens) if (text.includes(token)) score += 1;
+    for (const cue of OLIVE_VISUAL_CUES) {
+      if (cue.re.test(reviewText) && cue.re.test(row.content || "")) score += 2;
+    }
+    score += Math.min(oliveAttachedPhotoCount(row), 3) * 0.2;
+    score += Math.min(Number(row.usefulPoint || 0), 100) / 1000;
+    return { row, score, tie: Math.random() };
+  }).sort((a, b) => b.score - a.score || a.tie - b.tie);
+
+  const out: { content: string; photoCount: number; reviewType?: string }[] = [];
+  const seen = new Set<string>();
+  for (const item of scored) {
+    const content = normalizeText(item.row.content || "");
+    if (!content || seen.has(content)) continue;
+    seen.add(content);
+    out.push({ content, photoCount: Math.max(1, oliveAttachedPhotoCount(item.row)), reviewType: item.row.reviewType });
+    if (out.length >= Math.max(1, maxRows)) break;
   }
   return out;
 }

@@ -1,0 +1,61 @@
+{
+  "source_review_count": 4380,
+  "dedupe_rule": "줄바꿈/연속 공백 정규화 후 본문 완전 동일 리뷰만 제거",
+  "analyzed_review_count": 4290,
+  "photo_review_count": 2819,
+  "photo_review_rate_pct": 65.7,
+  "attached_photo_count": 6859,
+  "photo_count_distribution": {
+    "1": 973,
+    "2": 474,
+    "3": 905,
+    "4+": 467
+  },
+  "photo_review_context_signals": [
+    {
+      "label": "제품/패키지 자체를 보여주는 컷",
+      "count": 2122,
+      "rate_pct": 75.3
+    },
+    {
+      "label": "피부결·모공·각질 등 결과/디테일 클로즈업",
+      "count": 1614,
+      "rate_pct": 57.3
+    },
+    {
+      "label": "손이 들어가는 실제 사용·꺼내는 장면",
+      "count": 1569,
+      "rate_pct": 55.7
+    },
+    {
+      "label": "제형·에센스·내용물 가까이 보여주는 컷",
+      "count": 1168,
+      "rate_pct": 41.4
+    },
+    {
+      "label": "재구매·기획·리필·여러 개를 보여주는 구매 인증 컷",
+      "count": 1117,
+      "rate_pct": 39.6
+    },
+    {
+      "label": "세안·아침 루틴 등 생활 공간 속 사용 컷",
+      "count": 483,
+      "rate_pct": 17.1
+    },
+    {
+      "label": "메이크업 전후 맥락의 피부/화장대 컷",
+      "count": 427,
+      "rate_pct": 15.1
+    }
+  ],
+  "generation_role": {
+    "official_detail_page": "제품 외형, 패키지, 공식 FACT",
+    "first_party_reviews": "해당 제품의 실제 사용/섭취/양치/생활 맥락과 자사 고객 사진",
+    "oliveyoung_photo_profile": "사진 유형, 구도, 배치, 손 사용, 생활감, 불완전한 스마트폰 촬영 문법"
+  },
+  "notes": [
+    "사진 유형 신호는 포토리뷰의 본문 문맥과 첨부 메타데이터를 전체 집계한 값이다.",
+    "올리브영 고객의 실제 사진을 복제하지 않고 집계 패턴과 매칭 포토리뷰 문맥만 사용한다.",
+    "타 브랜드의 제품 외형이나 효능은 가져오지 않는다."
+  ]
+}
