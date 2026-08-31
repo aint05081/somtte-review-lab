@@ -109,7 +109,7 @@ export async function POST(req: Request) {
     }
 
     const prompt = makePrompt(product.name, productId, review, photoRefs.map((x) => x.content).filter(Boolean));
-    const model = process.env.OPENAI_IMAGE_MODEL || "gpt-image-2";
+    const model = (process.env.OPENAI_IMAGE_MODEL || "gpt-image-2").trim();
     const common = {
       model,
       prompt,
@@ -119,7 +119,9 @@ export async function POST(req: Request) {
       output_compression: quality === "high" ? 92 : quality === "medium" ? 86 : 78,
     } as any;
 
-    const result = images.length ? await openai.images.edit({ ...common, image: images }) : await openai.images.generate(common);
+    const result = images.length
+      ? await openai.images.edit({ ...common, image: images })
+      : await openai.images.generate(common);
     const b64 = result.data?.[0]?.b64_json;
     if (!b64) throw new Error("이미지 생성 결과가 비어 있습니다.");
     return new Response(Buffer.from(b64, "base64"), {
@@ -130,8 +132,30 @@ export async function POST(req: Request) {
         "X-Detail-Refs": String(detailRefs.length),
       },
     });
-  } catch (e) {
-    console.error(e);
-    return NextResponse.json({ error: e instanceof Error ? e.message : "이미지 생성 중 오류가 발생했습니다." }, { status: 500 });
+  } catch (e: any) {
+    console.error("generate-image error", e);
+
+    const status = Number(e?.status || e?.response?.status || 500);
+    const code = String(e?.code || e?.error?.code || "").trim();
+    const rawMessage = String(e?.message || e?.error?.message || "이미지 생성 중 오류가 발생했습니다.");
+    const model = (process.env.OPENAI_IMAGE_MODEL || "gpt-image-2").trim();
+
+    let friendly = rawMessage;
+    if (status === 401) friendly = "OpenAI API 키 인증에 실패했습니다. Vercel의 OPENAI_API_KEY를 확인해주세요.";
+    else if (status === 403) friendly = `현재 OpenAI 프로젝트에서 ${model} 모델을 사용할 권한이 없습니다.`;
+    else if (status === 429) friendly = "OpenAI 이미지 API 사용 한도 또는 크레딧을 확인해주세요.";
+    else if (/model/i.test(rawMessage) && /not|access|exist|invalid|unsupported/i.test(rawMessage)) friendly = `이미지 모델 설정을 확인해주세요. 현재 설정: ${model}`;
+    else if (/billing|credit|quota/i.test(rawMessage)) friendly = "OpenAI API 결제/크레딧 또는 사용 한도를 확인해주세요.";
+
+    return NextResponse.json(
+      {
+        error: friendly,
+        detail: rawMessage,
+        code: code || undefined,
+        status,
+        model,
+      },
+      { status: status >= 400 && status < 600 ? status : 500 },
+    );
   }
 }

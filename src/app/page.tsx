@@ -86,7 +86,10 @@ export default function Home() {
         });
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.error || "이미지 생성에 실패했습니다.");
+          const main = data.error || "이미지 생성에 실패했습니다.";
+          const extra = data.detail && data.detail !== main ? `\n상세: ${data.detail}` : "";
+          const model = data.model ? `\n모델: ${data.model}` : "";
+          throw new Error(`${main}${extra}${model}`);
         }
         const blob = await res.blob();
         urls.push(URL.createObjectURL(blob));
