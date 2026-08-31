@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 
 type Length = "auto" | "short" | "medium" | "long";
 type AgeGroup = "auto" | "teens" | "20s" | "30s" | "40s" | "50plus";
+type ImageQuality = "low" | "medium" | "high";
 type Product = {
   id: string;
   brand: string;
@@ -12,8 +13,24 @@ type Product = {
   summary: string;
   reviewCount: number;
   detailPageCount: number;
+  photoReviewCount: number;
   ready: boolean;
 };
+type ImageState = { urls: string[]; loading: boolean; error: string };
+
+function splitReviews(text: string) {
+  if (!text.trim()) return [];
+  const blocks = text
+    .split(/(?:^|\n)\s*\d+\s*[.)]\s*/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (blocks.length) return blocks.map((x) => x.replace(/^\d+\s*[.)]\s*/, "").trim());
+  return [text.trim()];
+}
+
+function qualityLabel(q: ImageQuality) {
+  return q === "low" ? "저화질" : q === "medium" ? "중화질" : "고화질";
+}
 
 export default function Home() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -25,6 +42,10 @@ export default function Home() {
   const [result, setResult] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [withImages, setWithImages] = useState(false);
+  const [imageQuality, setImageQuality] = useState<ImageQuality>("high");
+  const [imagesPerReview, setImagesPerReview] = useState(1);
+  const [reviewImages, setReviewImages] = useState<Record<number, ImageState>>({});
 
   useEffect(() => {
     fetch("/api/products")
@@ -39,6 +60,7 @@ export default function Home() {
   }, []);
 
   const selected = useMemo(() => products.find((x) => x.id === product), [products, product]);
+  const reviews = useMemo(() => splitReviews(result), [result]);
   const hasExperience = experience.trim().length > 0;
   const brands = useMemo(() => {
     const map = new Map<string, Product[]>();
@@ -49,11 +71,41 @@ export default function Home() {
     return [...map.entries()];
   }, [products]);
 
+  async function generateImage(review: string, index: number, amount = imagesPerReview) {
+    setReviewImages((prev) => ({
+      ...prev,
+      [index]: { urls: prev[index]?.urls || [], loading: true, error: "" },
+    }));
+    try {
+      const urls: string[] = [];
+      for (let i = 0; i < amount; i++) {
+        const res = await fetch("/api/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ product, review, quality: imageQuality }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "이미지 생성에 실패했습니다.");
+        }
+        const blob = await res.blob();
+        urls.push(URL.createObjectURL(blob));
+      }
+      setReviewImages((prev) => ({ ...prev, [index]: { urls, loading: false, error: "" } }));
+    } catch (e) {
+      setReviewImages((prev) => ({
+        ...prev,
+        [index]: { urls: prev[index]?.urls || [], loading: false, error: e instanceof Error ? e.message : "이미지 생성 오류" },
+      }));
+    }
+  }
+
   async function generate() {
     if (!product || !selected?.ready) return;
     setLoading(true);
     setError("");
     setResult("");
+    setReviewImages({});
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
@@ -63,6 +115,13 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "생성에 실패했습니다.");
       setResult(data.text);
+
+      if (withImages) {
+        const generatedReviews = splitReviews(data.text);
+        for (let i = 0; i < generatedReviews.length; i++) {
+          await generateImage(generatedReviews[i], i, imagesPerReview);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "오류가 발생했습니다.");
     } finally {
@@ -72,6 +131,13 @@ export default function Home() {
 
   async function copy() {
     if (result) await navigator.clipboard.writeText(result);
+  }
+
+  function saveImage(url: string, index: number, imageIndex: number) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${selected?.label || "review"}-review-${index + 1}-${imageIndex + 1}.jpg`;
+    a.click();
   }
 
   return (
@@ -101,7 +167,7 @@ export default function Home() {
                       <button
                         key={p.id}
                         className={`product ${product === p.id ? "active" : ""} ${!p.ready ? "notReady" : ""}`}
-                        onClick={() => setProduct(p.id)}
+                        onClick={() => { setProduct(p.id); setReviewImages({}); }}
                       >
                         <strong>{p.label}</strong>
                         <span>{p.summary}</span>
@@ -132,8 +198,24 @@ export default function Home() {
               <div><label className="label">결과 수</label><select value={count} onChange={(e) => setCount(Number(e.target.value))}><option value={1}>1개</option><option value={3}>3개</option><option value={5}>5개</option><option value={10}>10개</option><option value={20}>20개</option></select></div>
             </div>
 
+            <div className="imageOptionsPanel">
+              <label className="imageToggle">
+                <input type="checkbox" checked={withImages} onChange={(e) => setWithImages(e.target.checked)} />
+                <span className="fakeCheck">✓</span>
+                <div><b>리뷰 이미지도 함께 생성</b><small>실제 후기 사진의 촬영 패턴 + 상세페이지 제품 외형 참고</small></div>
+              </label>
+              <div className={`imageOptionControls ${withImages ? "" : "disabledPanel"}`}>
+                <div><label className="label">이미지 화질</label><select value={imageQuality} onChange={(e) => setImageQuality(e.target.value as ImageQuality)} disabled={!withImages}><option value="low">저화질</option><option value="medium">중화질</option><option value="high">고화질</option></select></div>
+                <div><label className="label">리뷰당 이미지</label><select value={imagesPerReview} onChange={(e) => setImagesPerReview(Number(e.target.value))} disabled={!withImages}><option value={1}>1장</option><option value={2}>2장</option><option value={3}>3장</option><option value={4}>4장</option></select></div>
+              </div>
+              <div className="imageRefInfo">
+                <span>📷 실제 사진 리뷰 <b>{selected?.photoReviewCount || 0}건</b></span>
+                <span>▤ 상세페이지 <b>{selected?.detailPageCount || 0}장</b></span>
+              </div>
+            </div>
+
             <button className="primary bigPrimary" onClick={generate} disabled={loading || !product || !selected?.ready}>
-              {loading ? "리뷰 만드는 중…" : selected?.ready ? `✧ ${count}개 리뷰 만들기` : "이 제품의 리뷰 JSON을 먼저 넣어주세요"}
+              {loading ? (withImages ? "리뷰·이미지 만드는 중…" : "리뷰 만드는 중…") : selected?.ready ? `✧ ${count}개 리뷰 만들기${withImages ? " + 이미지" : ""}` : "이 제품의 리뷰 JSON을 먼저 넣어주세요"}
             </button>
 
             <div className="profileInfo">
@@ -141,19 +223,54 @@ export default function Home() {
               <div><b>브랜드</b><span>{selected?.brand || "-"}</span></div>
               <div><b>연령대</b><span>{ageGroup === "auto" ? "자동 분산" : ageGroup === "teens" ? "10대 말투" : ageGroup === "50plus" ? "50대+ 말투" : `${ageGroup.replace("s", "")}대 말투`}</span></div>
               <div><b>제품 소구</b><span>{selected ? `상세페이지 ${selected.detailPageCount}개 이미지 기반` : "-"}</span></div>
-              <div><b>상세페이지</b><span>{selected ? `${selected.detailPageCount}개 이미지 구간 반영` : "-"}</span></div>
+              <div><b>리뷰 이미지</b><span>{selected ? `실제 사진 리뷰 ${selected.photoReviewCount || 0}건 패턴 참고` : "-"}</span></div>
               <div><b>입력</b><span>{hasExperience ? "작성한 포인트 우선 반영" : "공식 소구 + 실제 경험 자동 조합"}</span></div>
             </div>
-            <div className="notice"><b>제품 카드의 소구는 상세페이지 기준입니다.</b> 공홈 리뷰는 실제 소비자의 개인 경험·구매 계기·생활 맥락을 참고하고, 공식 성분·기능·사용법·핵심 소구는 전체 상품 상세페이지에서 확인합니다.</div>
+            <div className="notice"><b>이미지는 새로 생성됩니다.</b> 실제 고객 사진은 구도·생활감·촬영 패턴 참고용으로만 사용하며, 특정 고객이나 아이의 얼굴·방·포즈를 복제하지 않습니다. 생성된 사진에는 화면에서 AI 생성 표시가 붙습니다.</div>
             {error && <div className="error">{error}</div>}
           </div>
 
           <div className="card resultCard">
             <div className="resultTop"><h2><span className="sectionIcon">✧</span> 생성된 리뷰 샘플</h2><div className="actions"><button className="ghost" onClick={copy} disabled={!result}>전체 복사</button><button className="ghost accentGhost" onClick={generate} disabled={loading || !selected?.ready}>다시 만들기</button></div></div>
-            <div className={`resultBox ${result ? "" : "placeholder"}`}>
-              {result || <div className="emptyState"><div className="fileIcon">▤</div><strong>리뷰를 생성해 보세요!</strong><span>왼쪽에서 제품과 조건을 고르고<br />‘리뷰 만들기’를 눌러주세요.</span></div>}
-            </div>
-            <div className="meta">제품별 원본 리뷰와 상세페이지 이미지는 브라우저에 공개하지 않고 서버에서만 읽습니다. 올리브영은 문체, 공홈 리뷰는 개인 경험·생활 맥락, 상세페이지는 공식 소구와 FACT 확인에 사용합니다.</div>
+
+            {!reviews.length ? (
+              <div className="resultBox placeholder"><div className="emptyState"><div className="fileIcon">▤</div><strong>리뷰를 생성해 보세요!</strong><span>왼쪽에서 제품과 조건을 고르고<br />‘리뷰 만들기’를 눌러주세요.</span></div></div>
+            ) : (
+              <div className="reviewCards">
+                {reviews.map((review, index) => {
+                  const imgState = reviewImages[index] || { urls: [], loading: false, error: "" };
+                  return (
+                    <article className="reviewCard" key={`${index}-${review.slice(0, 20)}`}>
+                      <div className="reviewCardTop"><span className="reviewNo">REVIEW {index + 1}</span><span className="stars">★★★★★</span></div>
+                      <div className="reviewText">{review}</div>
+
+                      <div className="reviewImageBar">
+                        <div><b>리뷰 이미지</b><small>{qualityLabel(imageQuality)} · {imagesPerReview}장 · 실제 후기 패턴 자동 참고</small></div>
+                        <button className="imageGenerateButton" onClick={() => generateImage(review, index)} disabled={imgState.loading}>
+                          {imgState.loading ? "생성 중…" : imgState.urls.length ? "↻ 다시 생성" : "✦ 이미지 생성"}
+                        </button>
+                      </div>
+
+                      {imgState.error && <div className="imageError">{imgState.error}</div>}
+                      {imgState.loading && <div className="imageLoading"><div className="spinner" /><b>후기 사진 패턴을 참고해 생성 중…</b><span>고화질은 시간이 조금 더 걸릴 수 있어요.</span></div>}
+                      {!!imgState.urls.length && !imgState.loading && (
+                        <div className={`generatedImageGrid count${Math.min(imgState.urls.length, 4)}`}>
+                          {imgState.urls.map((url, imageIndex) => (
+                            <div className="generatedImage" key={url}>
+                              <img src={url} alt={`AI 생성 리뷰 이미지 ${imageIndex + 1}`} />
+                              <span className="aiBadge">AI 생성 이미지</span>
+                              <button className="saveImageButton" onClick={() => saveImage(url, index, imageIndex)}>저장</button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+
+            <div className="meta">제품별 원본 리뷰와 상세페이지 이미지는 브라우저에 공개하지 않고 서버에서만 읽습니다. 이미지 생성 시 실제 후기 사진은 촬영 스타일 참고용, 상세페이지 이미지는 제품 외형 참고용으로 사용합니다.</div>
           </div>
         </section>
         <footer>© <b>BNR</b> Review Lab · Internal Tool</footer>

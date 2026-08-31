@@ -4,7 +4,19 @@ import { getProduct, getProducts, productDataPath, type ProductConfig } from "@/
 import { detailPageCount } from "@/lib/details";
 
 type OliveReview = { content?: string; reviewScore?: number; isRepurchase?: boolean; reviewType?: string };
-type ProductReview = { content?: string; ratings?: number; rating?: number; reviewScore?: number };
+type ProductMedia = {
+  photo_url?: string | null;
+  photo_platform_url?: string | null;
+  thumbnail_photo_url?: string | null;
+  thumbnail_photo_platform_url?: string | null;
+};
+type ProductReview = {
+  content?: string;
+  ratings?: number;
+  rating?: number;
+  reviewScore?: number;
+  ordered_media?: ProductMedia[];
+};
 
 type Loaded = {
   olive: OliveReview[];
@@ -221,6 +233,50 @@ function sampleProductReferences(rows: ProductReview[]) {
   return { examples: shuffle(selected).slice(0, 14).map((r) => cleanProductReviewText(r.content || "")), keywords };
 }
 
+function photoUrls(row: ProductReview) {
+  const urls = (row.ordered_media || [])
+    .map((m) => m.photo_url || m.photo_platform_url || m.thumbnail_photo_url || m.thumbnail_photo_platform_url || "")
+    .filter(Boolean) as string[];
+  return [...new Set(urls)];
+}
+
+export function productPhotoReviewCount(productId: string) {
+  const d = data();
+  const product = getProduct(productId);
+  return (d.products.get(product.id) || []).reduce((n, row) => n + (photoUrls(row).length ? 1 : 0), 0);
+}
+
+export function sampleReviewPhotoReferences(productId: string, reviewText = "", maxImages = 3) {
+  const d = data();
+  const product = getProduct(productId);
+  const rows = (d.products.get(product.id) || []).filter((row) => photoUrls(row).length > 0);
+  if (!rows.length) return [];
+
+  const tokens = new Set((cleanProductReviewText(reviewText).match(/[가-힣A-Za-z]{2,}/g) || []).map((x) => x.toLowerCase()));
+  const scored = rows.map((row) => {
+    const text = cleanProductReviewText(row.content || "").toLowerCase();
+    let score = 0;
+    for (const token of tokens) if (text.includes(token)) score += 1;
+    if (/재구매|쟁여|여러|박스|통/.test(reviewText) && /재구매|쟁여|박스|통/.test(text)) score += 3;
+    if (/먹|섭취|맛|초코|사과|포도|우유|미숫가루/.test(reviewText) && /먹|섭취|맛|초코|사과|포도|우유|미숫가루/.test(text)) score += 3;
+    if (/양치|치약|미백|구취|개운/.test(reviewText) && /양치|치약|미백|구취|개운/.test(text)) score += 3;
+    if (/피부|패드|코튼|피지|각질|진정/.test(reviewText) && /피부|패드|코튼|피지|각질|진정/.test(text)) score += 3;
+    return { row, score, tie: Math.random() };
+  }).sort((a, b) => b.score - a.score || a.tie - b.tie);
+
+  const out: { url: string; content: string }[] = [];
+  const seen = new Set<string>();
+  for (const item of scored) {
+    for (const url of photoUrls(item.row)) {
+      if (seen.has(url)) continue;
+      out.push({ url, content: cleanProductReviewText(item.row.content || "") });
+      seen.add(url);
+      if (out.length >= Math.max(1, maxImages)) return out;
+    }
+  }
+  return out;
+}
+
 export function sampleOliveOnly() {
   const d = data();
   return sampleOliveReferences(d.olive);
@@ -252,6 +308,7 @@ export function publicProducts() {
       summary: p.detailSummary || "상세페이지 FACT 기반",
       reviewCount: rows.length,
       detailPageCount: detailPageCount(p),
+      photoReviewCount: rows.reduce((n, row) => n + (photoUrls(row).length ? 1 : 0), 0),
       ready: rows.length > 0,
     };
   });

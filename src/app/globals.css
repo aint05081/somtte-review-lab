@@ -131,3 +131,49 @@ footer b { color:var(--blue); }
 .product.notReady.active { opacity:.78; }
 .product.notReady em { background:#f3f6fa; color:#718096; }
 @media (max-width:640px) { .brandGroups .products { grid-template-columns:1fr; } }
+
+/* v9.4 review image generation */
+.imageOptionsPanel { margin-top:17px; padding:14px; border:1px solid #dbe8f8; border-radius:14px; background:linear-gradient(180deg,#fbfdff,#f5f9ff); }
+.imageToggle { display:flex; align-items:flex-start; gap:10px; cursor:pointer; }
+.imageToggle input { position:absolute; opacity:0; pointer-events:none; }
+.fakeCheck { width:22px; height:22px; flex:0 0 22px; margin-top:1px; border:1px solid #b8c9df; border-radius:7px; display:grid; place-items:center; background:#fff; color:transparent; font-size:12px; font-weight:900; transition:.15s ease; }
+.imageToggle input:checked + .fakeCheck { background:var(--blue); border-color:var(--blue); color:#fff; box-shadow:0 4px 12px rgba(18,100,234,.2); }
+.imageToggle b { display:block; font-size:13px; margin-bottom:4px; }
+.imageToggle small { display:block; color:var(--muted); font-size:10px; line-height:1.5; }
+.imageOptionControls { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; transition:.15s ease; }
+.imageOptionControls .label { margin-top:10px; }
+.disabledPanel { opacity:.42; }
+.imageRefInfo { display:flex; gap:8px; flex-wrap:wrap; margin-top:11px; }
+.imageRefInfo span { padding:6px 8px; border-radius:8px; background:#fff; border:1px solid #e0e9f5; color:#708097; font-size:10px; }
+.imageRefInfo b { color:#355d91; }
+.reviewCards { display:grid; gap:13px; }
+.reviewCard { border:1px solid var(--line); border-radius:17px; background:#fff; padding:17px; box-shadow:0 5px 14px rgba(35,79,139,.035); }
+.reviewCardTop { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px; }
+.reviewNo { font-size:10px; letter-spacing:.08em; font-weight:900; color:#6d82a0; }
+.stars { color:#ffb328; letter-spacing:1px; font-size:12px; }
+.reviewText { white-space:pre-wrap; line-height:1.75; font-size:14px; color:#202b3b; }
+.reviewImageBar { margin-top:15px; padding-top:13px; border-top:1px dashed #dce5f1; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+.reviewImageBar b { display:block; font-size:12px; margin-bottom:3px; }
+.reviewImageBar small { display:block; color:#8795a9; font-size:10px; line-height:1.45; }
+.imageGenerateButton { flex:0 0 auto; border:1px solid #b8d0f1; border-radius:9px; padding:8px 11px; background:#f5f9ff; color:var(--blue); font-size:11px; font-weight:800; }
+.imageGenerateButton:hover { background:#edf5ff; }
+.imageGenerateButton:disabled { opacity:.55; cursor:wait; }
+.imageLoading { margin-top:12px; min-height:145px; border:1px dashed #cbdcf3; border-radius:13px; background:#f8fbff; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; text-align:center; color:#60738f; }
+.imageLoading b { font-size:12px; }
+.imageLoading span { font-size:10px; color:#8b99ab; }
+.spinner { width:25px; height:25px; border:3px solid #d7e6fa; border-top-color:var(--blue); border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+.imageError { margin-top:10px; padding:9px 10px; border-radius:9px; background:#fff4f4; color:#bd4f5c; font-size:11px; }
+.generatedImageGrid { display:grid; gap:9px; margin-top:12px; grid-template-columns:repeat(2,minmax(0,1fr)); }
+.generatedImageGrid.count1 { grid-template-columns:minmax(0,360px); }
+.generatedImage { position:relative; border-radius:13px; overflow:hidden; background:#edf3fa; aspect-ratio:1/1; border:1px solid #dce6f2; }
+.generatedImage img { width:100%; height:100%; object-fit:cover; display:block; }
+.aiBadge { position:absolute; left:8px; top:8px; padding:5px 7px; border-radius:999px; background:rgba(20,31,48,.74); color:#fff; font-size:9px; font-weight:800; backdrop-filter:blur(4px); }
+.saveImageButton { position:absolute; right:8px; bottom:8px; border:0; border-radius:8px; padding:6px 9px; background:rgba(255,255,255,.9); color:#2f4f77; font-size:10px; font-weight:800; box-shadow:0 2px 8px rgba(20,40,70,.12); }
+@media (max-width:640px) {
+  .imageOptionControls { grid-template-columns:1fr 1fr; }
+  .reviewImageBar { align-items:flex-start; flex-direction:column; }
+  .imageGenerateButton { width:100%; }
+  .generatedImageGrid { grid-template-columns:1fr; }
+  .generatedImageGrid.count1 { grid-template-columns:1fr; }
+}
